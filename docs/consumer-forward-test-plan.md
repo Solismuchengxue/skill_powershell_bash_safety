@@ -36,6 +36,13 @@
 - 禁止：修改文件、安装工具、执行 fixture-based Pester、运维脚本或 Target backend。
 - 结论：未运行的行为、lint 或 Target 检查保持 `NOT_VERIFIED`/`NOT_RUN`。
 
+### C4 一次性 sudo 遮蔽输入
+
+- 触发：只有用户明确选择 GUI 方式，且 exact destination、absolute target argv、`MaxOutputBytes` 与 action digest 已取得 action-time authorization。
+- 预期：queued/未聚焦 PTY 只负责启动；密码只能进入独立 WPF `PasswordBox.SecurePassword`，通过 SSH stdin 送往 remote `sudo -S`，不进入 console、argv、environment、日志、history 或文件。
+- 停止：GUI/session 不可用、cancel、empty、mismatch、identity/command drift、target 需要 inherited stdin、输出超限或 protocol 无法完整分层时 fail closed；不回退到普通 terminal、DPAPI 或 SecretStore。
+- 证据：本项目只运行 synthetic sentinel/fake sudo/target/large-output fixtures，并证明 status file 不依赖 root 创建以及本机/remote 输出均有硬上限；真实 SSH、sudo、FNOS 与 consumer 集成保持 `NOT_VERIFIED`。
+
 ## Acceptance
 
 1. PowerShell adapter 的公开 mode 只包含 Fast/Milestone；Shell adapter 包含 Fast/Milestone/Target，并对 WSL 要求 Target 与显式 distribution。
@@ -43,3 +50,4 @@
 3. 只读审查者不继承实施权限；已存在且无项目写入的 parser/lint 与 fixture-based Pester、Target/运维执行分开。
 4. portable package 与公开 tracked payload 不包含内部任务身份；消费者映射只使用通用 identifier。
 5. MCP 消息审批、空回传和任务唤醒问题保持 `UNKNOWN`/外部边界，不声明为 Shell safety 已解决。
+6. 一次性 sudo helper 只消费已经存在的 action-time authorization；Skill 调用、角色或 GUI 显示都不能自行产生授权，也不能把 synthetic PASS 升级为真实 Target PASS。

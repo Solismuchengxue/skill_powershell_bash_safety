@@ -70,3 +70,36 @@ PowerShell adapter 报告 `psscriptanalyzer_status/reason`；Shell adapter额外
 ## 5. 与运行层的边界
 
 Parser 与 lint 不证明 parameter binding、archive bytes、transport、container entrypoint、remote identity 或 runtime health。只有实际任务触发这些风险时才增加对应检查；WSL/Docker/远程连接、安装、部署、rollback、凭据和服务中断仍分别请求执行时授权。
+
+## 6. 一次性 sudo 遮蔽输入
+
+只在具体 action 已获授权、用户明确选择 GUI 输入且 Windows interactive desktop 可用时调用。先从固定 PowerShell 7 启动 STA session；密码只在随后出现的 WPF 窗口中输入两次，不在 terminal、chat 或 history 中输入：
+
+```powershell
+& 'C:\Program Files\PowerShell\7\pwsh.exe' -NoLogo -NoProfile -Sta
+```
+
+在该 STA session 中，用同一组 non-secret action parameters 先生成 digest，取得该 digest 对应的 action-time authorization 后再执行：
+
+```powershell
+$modulePath = Join-Path $SkillRoot 'scripts\Invoke-MaskedSudoOverSsh.psm1'
+Import-Module -Name $modulePath -Force
+
+$action = @{
+    AuthorizationId = 'approved-action-001'
+    HostName = 'server.example'
+    UserName = 'operator'
+    Port = 22
+    TargetCommand = '/usr/bin/id'
+    TargetArgument = @('-u')
+    KnownHostsFile = Join-Path $env:USERPROFILE '.ssh\known_hosts'
+    MaxOutputBytes = 1048576
+}
+$digest = New-SolisSudoActionDigest @action
+# 在获得该 digest 对应的 action-time authorization 后：
+$result = Invoke-SolisMaskedSudoOverSsh @action -ExpectedActionDigest $digest
+```
+
+`TargetCommand` 必须是 absolute POSIX path；target 不得需要 inherited stdin。`MaxOutputBytes` 默认 `1048576`、范围 `1..16777216`，是 action digest 的一部分，并分别限制 sudo/target stdout/stderr；Windows transport 也使用有界并发读取。任何输出超限都返回 `ErrorLayer=OutputLimit`、`FailureCode=OUTPUT_LIMIT_EXCEEDED`。module 在 GUI 前后两次校验 action identity，并固定 `BatchMode=yes`、`StrictHostKeyChecking=yes`、`RequestTTY=no`、`PasswordAuthentication=no`。SSH/sudo/target 结果只保存在返回对象的 `Ssh`、`Sudo`、`Target` 三层中；调用方若另行持久化结果，必须先按目标项目的数据与日志规则脱敏。
+
+GUI cancel、两次输入不一致、空值、MTA、non-Windows、session 0、WPF 不可用、helper/SSH/known_hosts/identity 前置失败、digest 漂移、输出超限或 protocol 不完整均直接失败。没有 console、PTY、DPAPI、SecretStore 或 plaintext file fallback，也没有自动 retry。

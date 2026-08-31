@@ -1,6 +1,6 @@
 ---
 name: powershell-bash-safety
-description: Use when writing, reviewing, packaging, or running PowerShell, SSH, Bash, or POSIX sh chains where parameter sets, quoting, interpreters, line endings, transferred artifacts, or exit codes can make a script fail across platforms.
+description: Use when PowerShell, SSH, Bash, or POSIX sh chains risk parameter, quoting, interpreter, byte, transport, exit-code, or authorized interactive sudo-input failures across platforms.
 ---
 
 # PowerShell 与 Bash 安全执行
@@ -27,10 +27,21 @@ Gate 是条件式层级，不是每次全部执行，也不是拆成多张用户
 - Git Bash PASS 只证明 Windows 本地兼容层解析通过，不能冒充目标 Linux 证据。
 - WSL、Docker、远程主机、部署和真实运行分别受 action-time 授权；本 Skill 不自动扩大权限。
 
+## 一次性 sudo 遮蔽输入
+
+仅当用户已选择该方式，且具体 Windows → SSH → Linux/FNOS sudo 动作已经取得 action-time authorization 时，才使用 [Invoke-MaskedSudoOverSsh.psm1](scripts/Invoke-MaskedSudoOverSsh.psm1)。先用 `New-SolisSudoActionDigest` 冻结 authorization ID、destination、absolute target argv、`known_hosts`、可选 identity metadata、SSH/helper identity、timeout 与 `MaxOutputBytes`；执行时必须把同一 digest 传给 `Invoke-SolisMaskedSudoOverSsh`。
+
+- 只接受固定 PowerShell 7、STA、Windows interactive desktop 与 WPF `PasswordBox.SecurePassword`；每次动作显示独立 topmost GUI。queued/未聚焦 PTY、普通终端、`Read-Host` 或 `open_in_codex` 都不是密码输入面。
+- 密码不进入 argv、environment、stdout、stderr、日志、PSReadLine 或文件。实现不构造完整 plaintext managed string；从 BSTR 填充可清理 `char[]`/UTF-8 `byte[]`，直接向 SSH stdin `BaseStream` 写入 payload 与单独 LF，并在各路径清理 buffers、BSTR 与 `SecureString`。
+- SSH 使用结构化 `ArgumentList`、禁用 PTY 与 SSH interactive password fallback；remote helper 通过 `sudo -S` 读取这一行，target stdin 固定为 `/dev/null`，并用内存/FIFO protocol 分层返回 SSH、sudo 与 target 的 exit code/stdout/stderr。non-secret target status 在 sudo 前由 outer SSH user 创建，不依赖 root 新建 regular file。
+- `MaxOutputBytes` 默认 `1048576`、允许 `1..16777216`，对四个 remote streams 分别形成硬上限；Windows SSH transport 另以派生的 stdout 上限和同值 stderr 上限并发读取。任一层超限都 fail closed 为 `OUTPUT_LIMIT_EXCEEDED`，不得无界缓冲。
+- cancel、empty、mismatch、GUI/session 不可用、前置文件/ReparsePoint、action drift、SSH start/timeout、输出超限或 remote protocol 不完整时 fail closed；不回退到 echo pipe、argv/env、plaintext temp file、DPAPI、SecretStore 或普通终端，也不自动 retry。
+- 该方式只减少屏幕回显与意外历史记录；值仍短暂存在当前用户进程内存并经 SSH 加密通道传输。真实 SSH、sudo policy、目标命令和 GUI 可见性仍需在获授权的 Target 里分别验证。
+
 ## 选择与边界
 
 - Windows PowerShell 固定使用 `C:\Program Files\PowerShell\7\pwsh.exe`；缺失时读取 [Windows 一次性引导](references/windows-bootstrap.md)并停止，不回退到 `powershell.exe`。
 - PowerShell 使用 [Test-PowerShellSyntax.ps1](scripts/Test-PowerShellSyntax.ps1)，Shell 使用 [Test-ShellSyntax.ps1](scripts/Test-ShellSyntax.ps1)。两者都只是官方/成熟 parser 的安全编排器，不自研分析算法。
 - parser、lint、target compatibility 与 runtime 是不同结论。前一层 PASS 不替代后一层；真实变更、安装、凭据、服务中断和生产执行均需独立授权。
 
-命令、输入输出、dialect/backend 与工具状态见 [中文操作参考](references/zh-CN.md)。
+命令、输入输出、dialect/backend、一次性 sudo 调用合同与工具状态见 [中文操作参考](references/zh-CN.md)。

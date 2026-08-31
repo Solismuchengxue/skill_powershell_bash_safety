@@ -12,14 +12,15 @@
 | --- | --- |
 | 规范包自包含、可发现，并符合 OpenAI Skill 结构 | `skills/powershell-bash-safety/` 与包验证器 |
 | PowerShell 与 Bash/POSIX sh 使用身份明确的解释器和成熟解析器；不确定输入失败时停止 | 包内语法适配器及项目级适配器测试 |
+| 已授权 sudo 动作可以使用独立 Windows GUI 遮蔽输入，且 secret 不进入 PTY、argv、environment、日志或文件；不可信输出受双层硬上限约束 | 一次性 sudo module、remote FIFO helper 与 synthetic pressure/large-output tests |
 | Fast、Milestone、Target 保持条件式分层，本地解析器 PASS 不冒充后续层证据 | [架构说明](architecture.md)与离线合同测试 |
 | 项目级证据能验证适配器和消费者授权边界，同时不污染可移植包 | [消费者前向测试计划](consumer-forward-test-plan.md)与包边界测试 |
 
 ## 范围与非目标
 
-范围包括 PowerShell、原生命令参数、SSH、Bash、POSIX sh、归档、传输与容器启动链的防错方法，以及相应的离线适配器、测试和项目文档。
+范围包括 PowerShell、原生命令参数、SSH、Bash、POSIX sh、归档、传输与容器启动链的防错方法，以及经 action digest 约束的 Windows WPF → SSH → sudo 一次性遮蔽输入方法、相应离线适配器、synthetic tests 和项目文档。
 
-非目标包括自动安装工具、修改用户或系统配置、覆盖已安装 Skill 镜像、连接或变更远程环境、读取凭据、部署、服务中断、真实消费者切换，以及替代组织级协调、验收或发布权威。
+非目标包括自动安装工具、修改用户或系统配置、覆盖已安装 Skill 镜像、未授权连接或变更远程环境、从 chat/history/file/env 读取或持久化凭据、DPAPI/SecretStore、部署、服务中断、真实消费者切换，以及替代组织级协调、验收或发布权威。
 
 ## 约束与 UNKNOWN
 
@@ -28,6 +29,7 @@
 - 可选静态检查工具缺失时保持 `NOT_RUN`，目标环境未实际验证时保持 `NOT_VERIFIED`。
 - 真实 WSL、FNOS、容器、SSH 或生产兼容性只在绑定具体目标并获得执行时授权后验证；当前不能由 Git Bash 或离线测试推断。
 - 项目级消费者测试证据可以进入本仓库，但其中的任务引用不属于可移植 Skill 包。
+- 一次性 sudo 路径只有在用户选择、exact action 已获授权、Windows interactive desktop 与 STA/WPF 均可证明时启用；真实 GUI、SSH、sudo 与 target 未运行时保持 `NOT_VERIFIED`。
 
 ## 关键边界
 

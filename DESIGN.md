@@ -10,7 +10,7 @@
 
 ## 目标
 
-维护一个可复用、可验证的跨平台 Shell 安全 Skill，把 PowerShell、原生命令参数、SSH、Bash/POSIX sh、归档、传输、Compose/容器和运行态分成独立验证门，减少多层解释与字节漂移造成的重复失败。
+维护一个可复用、可验证的跨平台 Shell 安全 Skill，把 PowerShell、原生命令参数、SSH、Bash/POSIX sh、归档、传输、Compose/容器和运行态分成独立验证门，并为已授权 sudo 动作提供不依赖终端的 Windows WPF 一次性遮蔽输入，减少多层解释、字节漂移与凭据误入普通 PTY 造成的失败。
 
 ## 核心原则
 
@@ -19,6 +19,15 @@
 - 解析器、字节身份、传输、试运行与运行态结论分别报告。
 - 失败保留首个根因；不通过换 Shell、静默转码、跳过清单或重复启动绕过。
 - `ROLLED_BACK` 不等于新建目标已不存在；下一次执行前必须重新核对残留与身份。
+- 凭据输入面不是普通 terminal：只有 exact action 已获授权时才显示 WPF `PasswordBox`，任何 GUI、identity、command 或 protocol 不确定性都 fail closed。
+
+## 一次性 sudo 输入设计
+
+`New-SolisSudoActionDigest` 先绑定 authorization ID、destination、absolute target argv、timeout、`MaxOutputBytes`、固定 OpenSSH/helper hashes、`known_hosts` hash 与可选 identity file metadata。`Invoke-SolisMaskedSudoOverSsh` 在 GUI 前校验一次，用户确认后再校验一次，封闭输入期间的 identity/command/output-policy drift。
+
+WPF window 只在 PowerShell 7 STA、interactive Windows session 中启用；两个 `PasswordBox.SecurePassword` 只通过 BSTR code units 比较，不构造完整 plaintext managed string。接受值从 BSTR 进入可清理 `char[]`/UTF-8 `byte[]`，由 stdin `BaseStream` 写入并以单独 LF 终止；SSH `ArgumentList` 禁止 PTY 与 SSH interactive authentication fallback。remote helper 使用 FIFO drain target/sudo streams，target stdin 固定 `/dev/null`；outer SSH user 在 sudo 前创建 mode `0600` status file，避免依赖 root 新建文件的可读性。四个 remote streams 各自受 `MaxOutputBytes` 硬上限约束，Windows transport 也以派生上限并发读取 stdout/stderr；超限返回 `OUTPUT_LIMIT_EXCEEDED`。工作根只包含 FIFO 与 non-secret exit status，并由 trap 精确清理。
+
+返回对象分别保留 `Ssh`、`Sudo`、`Target` 的 exit code/stdout/stderr。protocol 完整不等于 target 成功；真实 GUI foreground、SSH authentication、sudo policy 和 target runtime 都是独立 Target evidence。
 
 ## 权威与部署
 
@@ -53,12 +62,13 @@ flowchart LR
 ## 验证策略
 
 1. `quick_validate.py` 验证 Skill 包结构。
-2. 新 PowerShell 脚本先由既有 AST 验证门检查，再由规范适配器自检；适配器规格测试共 28 个测试样本，覆盖有效/无效、字节、计数、去重/跳过、ReparsePoint、方言/后端身份、工具缺失、Text/Json、顶层错误与退出码。
+2. 新 PowerShell 脚本先由既有 AST 验证门检查，再由规范适配器自检；两个 syntax adapter 规格测试共 28 个测试样本，覆盖有效/无效、字节、计数、去重/跳过、ReparsePoint、方言/后端身份、工具缺失、Text/Json、顶层错误与退出码。
 3. `Test-ConsumerDepth.Tests.ps1` 以 8 个离线合同测试验证三类角色、Fast/Milestone/Target 选择、WSL 显式验证门、只读审查者边界和可移植包零任务引用泄漏。
-4. PowerShell AST、Bash `-n`、POSIX sh `-n` 分别验证至少一个非空样本。
-5. 检查引用路径、UTF-8、BOM、尾空白。
-6. 安装同步时比较相对文件集、长度、字节和 SHA-256。
-7. 修改后检查范围、差异与未授权部署副作用。
+4. `Test-MaskedSudoOverSsh.Tests.ps1` 以 29 个 synthetic tests 覆盖 action/identity/output-policy drift、STA/WPF/session、cancel/empty/mismatch、structured argv、无 console fallback、长 Unicode sentinel、SSH start failure、remote preflight、status ownership、双层输出硬上限、三层 protocol 与 FIFO cleanup。
+5. PowerShell AST、Bash `-n`、POSIX sh `-n` 分别验证至少一个非空样本。
+6. 检查引用路径、UTF-8、BOM、尾空白。
+7. 安装同步时比较相对文件集、长度、字节和 SHA-256。
+8. 修改后检查范围、差异与未授权部署副作用。
 
 ## 工具分层
 

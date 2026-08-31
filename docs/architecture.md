@@ -4,7 +4,7 @@
 
 - 状态：已采用的项目级设计。
 - 用途：定义 `powershell-bash-safety` 的多层解释模型、验证门、权威和停止条件。
-- 更新触发：新增解释器、传输、归档、容器启动责任模式，或确认新的可复用失败原因。
+- 更新触发：新增解释器、凭据输入面、传输、归档、容器启动责任模式，或确认新的可复用失败原因。
 
 ## 执行层
 
@@ -56,6 +56,33 @@ flowchart TB
 
 无法证明某一层的责任或方言时，停止拼接命令，改用独立脚本、原生命令参数、标准输入、受控环境或参数文件。
 
+## 已授权 sudo 的遮蔽输入路径
+
+该路径不是 parser gate 的延伸，也不由 `Target` 名称自动触发。它只消费已经存在的 action-time authorization，并在 Windows interactive desktop 中把密码输入从 queued/未聚焦 PTY 移到独立 WPF window。
+
+```mermaid
+flowchart LR
+    Plan["non-secret action parameters"] --> Digest["action digest<br/>destination / argv / identity"]
+    Digest --> Approval{"该 digest 已获<br/>action-time authorization？"}
+    Approval -- "否" --> Stop["FAIL CLOSED"]
+    Approval -- "是" --> Preflight["PowerShell 7 STA / WPF / session<br/>SSH / helper / known_hosts"]
+    Preflight --> Gui["topmost WPF<br/>PasswordBox × 2"]
+    Gui --> Recheck{"GUI 后 identity<br/>仍与 digest 一致？"}
+    Recheck -- "否" --> Clear["清理 SecureString / BSTR<br/>FAIL CLOSED"]
+    Recheck -- "是" --> Ssh["structured ssh ArgumentList<br/>no PTY / BatchMode"]
+    Ssh --> Remote["remote sudo -S<br/>target stdin=/dev/null"]
+    Remote --> Layers["SSH / sudo / target<br/>独立 exit + stdout + stderr"]
+```
+
+关键合同：
+
+- GUI 只读取两个 `PasswordBox.SecurePassword`，cancel、empty、mismatch、non-Windows、MTA、session 0 或 WPF unavailable 均停止；没有 terminal fallback。
+- action digest 绑定 authorization ID、host/user/port、absolute target argv、timeout、`MaxOutputBytes`、OpenSSH/helper SHA-256、`known_hosts` SHA-256 和可选 identity file 的 path/length/UTC mtime。private key 内容不由 helper 读取。
+- OpenSSH 关闭 config file、PTY、password/keyboard-interactive prompt 与重试；host key 必须由显式 `known_hosts` 验证。target command 通过确定性 POSIX single-quote contract 进入固定 remote helper，不拼接动态 shell program。
+- 值仅短暂存在 WPF/SecureString/BSTR/stream buffers；BSTR 由 `ZeroFreeBSTR` 清理，接受值在所有路径 `Dispose()`。remote work root 不含密码，只含 FIFO 与 outer SSH user 在 sudo 前创建的 non-secret target status，并由 trap 精确删除。
+- remote 四个输出流各自最多保留 `MaxOutputBytes`；reader 在截断后继续 drain FIFO，Windows transport 同时对 SSH stdout/stderr 设硬上限，均不使用无界 `ReadToEndAsync`。任一层超限统一 `ErrorLayer=OutputLimit`、`FailureCode=OUTPUT_LIMIT_EXCEEDED`。
+- remote protocol 完整时 SSH transport exit 为 0；sudo 与 target exit 另行报告。target 失败不改标为 SSH 失败，protocol 缺失也不冒充 target 结果。
+
 ## 验证门模型
 
 | 验证门 | 核心检查 | 不能证明什么 |
@@ -66,6 +93,7 @@ flowchart TB
 | 传输 | 双端文件集、长度、哈希 | 不能证明启动入口正确 |
 | 配置/试运行 | Compose 渲染、启动责任、工具检查 | 不能证明运行态健康 |
 | 运行 | 单次受控执行、明确回滚 | 只覆盖本次授权和观测范围 |
+| 遮蔽凭据输入 | WPF/STA/session、action digest、stdin-only、内存/FIFO cleanup | 不能产生 sudo 授权，也不能证明 SSH/sudo/target 成功 |
 
 验证门表示按风险升级的条件层，而不是每次调用都必须执行整张表。Fast 合并本地必要检查；Milestone 条件增加静态检查/测试；Target 才绑定真实目标环境。
 
@@ -115,5 +143,6 @@ flowchart TB
 - Skill 源码、安装镜像、Git 检查点、真实远程环境和生产操作是独立层。
 - 验证或授权不会自动跨层传递。
 - 文档与测试不得读取密码、凭据、业务正文或输出完整敏感日志。
+- synthetic tests 可以使用明确 sentinel；不得读取 chat、真实 history、environment 中的 secret，或连接真实 SSH/sudo/FNOS 来证明本地合同。
 - 规范验证器、旧用户级工具副本、已安装 Skill 镜像和机器 Shell 环境是不同身份；源码候选通过验证不授权覆盖后三者。
 - MCP 消息审批、空回传与任务唤醒不是解析器、静态检查或 Target 兼容性结论；没有外部证据时保持 `UNKNOWN`。
