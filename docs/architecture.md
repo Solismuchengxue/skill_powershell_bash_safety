@@ -8,15 +8,20 @@
 
 ## 执行层
 
-```text
-PowerShell parser
-  -> native executable argv
-  -> SSH/SCP transport
-  -> remote shell
-  -> Bash or POSIX sh
-  -> Compose/container entrypoint
-  -> runtime process
+```mermaid
+flowchart LR
+    Parser[PowerShell parser]
+    Argv[native executable argv]
+    Transport[SSH/SCP transport]
+    Remote[remote shell]
+    Shell[Bash or POSIX sh]
+    Container[Compose/container entrypoint]
+    Runtime[runtime process]
+
+    Parser --> Argv --> Transport --> Remote --> Shell --> Container --> Runtime
 ```
+
+该图只表达命令跨越的解释与交付顺序；任一节点 PASS 都不自动证明后续节点。
 
 每一层必须明确：
 

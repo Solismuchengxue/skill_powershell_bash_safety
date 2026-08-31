@@ -22,14 +22,13 @@
 
 ## Authority 与 deployment
 
-```text
-project canonical source
-  skills/powershell-bash-safety/
-            |
-            | explicit byte-exact install/update only
-            v
-user-level installed mirror
-  %USERPROFILE%\.codex\skills\powershell-bash-safety
+```mermaid
+flowchart LR
+    Source["Canonical source<br/>skills/powershell-bash-safety/"]
+    Gate{"Explicit byte-exact<br/>install/update gate"}
+    Mirror["User-level installed mirror<br/>%USERPROFILE%\.codex\skills\powershell-bash-safety"]
+
+    Source --> Gate --> Mirror
 ```
 
 - Canonical source 决定 Skill 内容。
@@ -37,22 +36,19 @@ user-level installed mirror
 - 不使用 Junction 或 Symlink 把两者合并为同一文件系统对象。
 - source 修改、validation、Git checkpoint、安装和真实使用分别需要适当证据与权限。
 
-## 文件职责
+## 文档导航
 
-- `SKILL.md`：适用范围、核心 workflow 与 fail-closed 边界。
-- `references/zh-CN.md`：按需加载的中文命令级参考。
-- `references/windows-bootstrap.md`：固定 PowerShell 7 入口缺失时的只读发现、独立授权门和未来 shell 体验 milestones。
-- `scripts/Test-PowerShellSyntax.ps1`：官方 `Parser.ParseFile` 的薄适配器；负责精确 collection、ReparsePoint、count、Text/Json 和稳定 exit，不实现分析算法。
-- `scripts/Test-ShellSyntax.ps1`：Bash/sh `-n` 的薄适配器；负责 dialect、backend identity、path domain、bytes、count、Text/Json 和条件式 ShellCheck。
-- `agents/openai.yaml`：Codex UI metadata。
-- `tests/Test-PowerShellSyntax.Tests.ps1`：项目级 Pester 行为测试，不进入 Skill package。
-- `tests/Test-ShellSyntax.Tests.ps1`：Shell adapter 的项目级 Pester 行为测试，不进入 Skill package。
-- `tests/Test-ConsumerDepth.Tests.ps1`：角色/授权深度与 portable package 引用边界的项目级合同测试，不进入 Skill package。
-- `tests/Invoke-Pester.ps1`：Pester runner 与非空 test-count gate。
-- `docs/consumer-forward-test-plan.md`：代表性消费者的项目本地前向测试矩阵；具体 task reference 只保留在此类本地计划中。
-- `docs/blueprint.md`：项目意图、范围、非目标、成功结果、长期约束与更新触发；不承载架构或测试明细。
-- `docs/architecture.md`：项目级执行模型、验证矩阵和维护边界。
-- `DEVLOG.md`、`TODO.md`：本地维护记录，不作为发布 package 内容。
+| 文档 | 用途 | 受众 | 状态 | 唯一权威 |
+| --- | --- | --- | --- | --- |
+| [项目蓝图](docs/blueprint.md) | 项目意图、范围、成功结果与长期约束 | 项目决策者、维护者 | current | 项目意图 |
+| [README](README.md) | 使用入口、能力与用户可见限制 | Skill 用户 | current | 用户入口 |
+| `DESIGN.md` | 简洁设计、authority 边界与文档导航 | 维护者、审查者 | current | 设计入口 |
+| [架构说明](docs/architecture.md) | 执行层、gate、interpreter 与证据边界 | 实施者、审查者 | current | 详细架构 |
+| [消费者前向测试计划](docs/consumer-forward-test-plan.md) | 角色/授权深度的项目级测试证据 | 项目维护者、D10 | current / project-only | 消费者测试合同；不进入 portable package |
+| [项目规则](AGENTS.md) | Swift Cycle 绑定、维护硬门与 Git 边界 | Agent、维护者 | current | 项目执行规则 |
+| `skills/powershell-bash-safety/` | Portable Skill 指令、参考与 syntax adapters | Skill 用户、维护者 | current | Canonical package |
+| `tests/` | Adapter 行为与项目级合同验证 | 维护者、审查者 | current / project-only | 离线测试 |
+| `TODO.md` / `DEVLOG.md` | 当前行动、失败与维护证据 | 本地维护者 | local / ignored | 本地执行记录；不进入 Git checkpoint |
 
 ## 验证策略
 

@@ -8,10 +8,12 @@
 
 ## 成功结果
 
-- Canonical package 在 `skills/powershell-bash-safety/` 保持自包含、可发现，并通过 OpenAI Skill 结构验证。
-- PowerShell 与 Bash/POSIX sh 检查使用身份明确的 interpreter 和成熟 parser，空集合、计数、字节或 dialect 不确定时 fail closed。
-- Fast、Milestone 与 Target 保持条件式分层；本地 parser PASS 不冒充 lint、目标环境或 runtime PASS。
-- 项目级测试与文档能证明 adapter 合同、消费者授权边界和 source/deployment 区分，同时不把项目内部引用带入 portable package。
+| 可观察结果 | 验证入口 |
+| --- | --- |
+| Canonical package 自包含、可发现，并符合 OpenAI Skill 结构 | `skills/powershell-bash-safety/` 与 package validator |
+| PowerShell 与 Bash/POSIX sh 使用身份明确的 interpreter 和成熟 parser；不确定输入 fail closed | Package 内 syntax adapters 及项目级 adapter tests |
+| Fast、Milestone、Target 保持条件式分层，本地 parser PASS 不冒充后续层证据 | [架构说明](architecture.md)与离线合同测试 |
+| 项目级证据能验证 adapter 和消费者授权边界，同时不污染 portable package | [消费者前向测试计划](consumer-forward-test-plan.md)与 package 边界测试 |
 
 ## 范围与非目标
 
@@ -29,10 +31,13 @@
 
 ## 关键边界
 
-- Blueprint 只维护项目意图、范围、成功结果和长期约束，不复制用法、架构、当前行动、失败记录或测试明细。
-- README 是用户入口；DESIGN 是简洁设计入口；`docs/architecture.md` 是详细架构权威；`AGENTS.md` 是维护与授权规则。
-- `TODO.md` 和 `DEVLOG.md` 是 ignored 本地维护记录，不进入 Git checkpoint。
-- Swift Cycle 只维护本项目内部工程循环；其 adoption 不授权 Git 后续动作、安装、发布、部署、凭据或真实目标运行。
+| 边界 | 权威位置 | 不证明或不授权 |
+| --- | --- | --- |
+| 项目意图与用户/设计事实分工 | 本文件、[README](../README.md)、[DESIGN](../DESIGN.md) | Blueprint 不复制用法、架构、当前行动、失败或测试明细 |
+| Canonical source 与 installed mirror 分离 | [DESIGN](../DESIGN.md)与[架构说明](architecture.md) | Source PASS 不证明安装、部署或 active 使用 |
+| Git checkpoint 与外部发布分离 | [AGENTS](../AGENTS.md) | 本地 commit 不授权 remote、push、tag 或 Release |
+| 本地行动与共享权威分离 | `TODO.md`、`DEVLOG.md` 与 `.gitignore` | Ignored 记录不进入 Git checkpoint，也不替代共享事实 |
+| Swift Cycle 只维护项目内部工程循环 | [AGENTS](../AGENTS.md) | Adoption 不授权删除、安装、凭据、Target 或真实运行 |
 
 ## 第一里程碑出口
 
