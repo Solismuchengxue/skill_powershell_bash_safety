@@ -7,6 +7,7 @@
 - 规范 Skill：`skills/powershell-bash-safety/`。
 - 用户级安装目录是独立安装镜像，不是源码权威。
 - 规范源码与用户级安装镜像保持独立；只有完成显式逐字节同步与验证，才能声明某一安装快照与源码一致。
+- 2026-09-23 的本机固定安装已达到 `INSTALLED_LOAD_VERIFIED`，消费入口是普通目录，不跟随开发 checkout。版本/制品身份及后续交付流程统一见 [固定版本交付与更新回退](docs/architecture.md#固定版本交付与更新回退)。
 
 ## 目标
 
@@ -34,16 +35,18 @@ WPF window 只在 PowerShell 7 STA、interactive Windows session 中启用；两
 ```mermaid
 flowchart LR
     Source["规范源码<br/>skills/powershell-bash-safety/"]
-    Gate{"显式逐字节一致<br/>安装或更新门"}
+    Package["固定 commit 制品<br/>清单与包哈希"]
+    Gate{"显式授权与逐字节验证<br/>安装或更新门"}
     Mirror["用户级安装镜像<br/>%USERPROFILE%\.codex\skills\powershell-bash-safety"]
 
-    Source --> Gate --> Mirror
+    Source --> Package --> Gate --> Mirror
 ```
 
 - 规范源码决定 Skill 内容。
 - 安装镜像只代表当前用户环境的部署状态。
 - 不使用 Junction 或 Symlink 把两者合并为同一文件系统对象。
 - 源码修改、验证、Git 检查点、安装和真实使用分别需要适当证据与权限。
+- 普通目录的文件替换与新会话加载验收分开记录；保留的旧 Junction 不是不可变版本快照。回滚核验、空窗与停止条件由架构说明统一定义，不以源码回退代替安装回退。
 
 ## 文档导航
 
@@ -76,7 +79,7 @@ flowchart LR
 - 可选静态检查：本机已有 PSScriptAnalyzer 才运行；缺失为 `NOT_RUN`，不自动安装，问题不替代 AST 结果。
 - 适配器测试：Pester 验证 Solis 收集、输出和退出行为，不承担语法解析器职责。
 - 编辑器反馈：PowerShellEditorServices/VS Code PowerShell 扩展不进入命令行硬门。
-- 未来 CI：Microsoft PSScriptAnalyzer Action 只能在独立 GitHub CI 里程碑中采用，本轮没有工作流、联网或安装授权。
+- 未来 CI：Microsoft PSScriptAnalyzer Action 只能在独立 GitHub CI 里程碑中采用；固定安装及交付文档收口不包含 CI 配置授权。
 
 ## 条件式验证模式
 

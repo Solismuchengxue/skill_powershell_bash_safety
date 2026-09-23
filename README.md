@@ -47,12 +47,16 @@ $powershell-bash-safety
 
 ## 当前限制
 
+截至 2026-09-23，本机已按固定 commit `0467a97bc859b9b4e71fffe218ee29f823adc35f` 安装为独立普通目录，并通过新会话发现、加载和 8 文件一致性验收（`INSTALLED_LOAD_VERIFIED`）。它不随源码编辑、切分支或 pull 自动更新；加载验收不代表 SSH/sudo 真实运行通过。
+
+GitHub `main` 已包含该 commit，但当日唯一 tag/Release `v1.0.0` 仍对应旧提交 `4f395835835ac35c8c51a6d52790e4aee7fc8b31`，不能用旧 Release 表示当前安装版本。固定制品身份、导出/验证、显式更新与回退流程见 [架构说明](docs/architecture.md#固定版本交付与更新回退)。
+
 - Skill 只提供防错与验证方法，不授予远程写入、部署、服务中断、凭据读取或生产执行权限。
 - parser PASS 不等于 package、transport 或 runtime PASS。
 - 用户级已安装副本是独立 mirror；源码变化不会自动安装。
 - PSScriptAnalyzer 是可选增强；不可用时明确 `NOT_RUN`，不由 syntax adapter 安装。Pester 与编辑器实时诊断都不替代官方 AST gate。
-- Windows 正常流程固定调用 `C:\Program Files\PowerShell\7\pwsh.exe`；PowerShell 7、Starship、Pastel Powerline、NFM、Profile、PATH 与终端设置均是独立 action-time milestone，本源码候选不执行这些变更。
+- Windows 正常流程固定调用 `C:\Program Files\PowerShell\7\pwsh.exe`；PowerShell 7、Starship、Pastel Powerline、NFM、Profile、PATH 与终端设置均是独立 action-time milestone，本 Skill 不自动执行这些变更。
 - 默认 Fast 只验证受影响文件；Milestone 条件增加 lint/tests；Target 仅在发布、部署或明确目标兼容性需求时进入。Git Bash PASS 不是 Linux/FNOS/container PASS。
 - 消费者角色不会自动扩大验证深度：实施者默认 Fast、按相关变化进入 Milestone；只读审查者不继承 fixture、Target 或运维执行权限。
-- 一次性 sudo helper 不授予 action-time authorization，也不证明真实 GUI foreground、SSH authentication、sudo policy 或 target runtime；本轮只有 Windows 本地 synthetic evidence，这些 Target 层保持 `NOT_VERIFIED`。
+- 一次性 sudo helper 不授予 action-time authorization，也不证明真实 GUI foreground、SSH authentication、sudo policy 或 target runtime；已有 Windows 本地 synthetic 与安装加载证据不能替代这些 `NOT_VERIFIED` 的 Target 层。
 - GUI 只减少屏幕回显与意外 history 记录；值仍短暂存在当前用户进程内存并经 SSH encrypted channel 传输。需要 inherited stdin 的 target command 不受支持。

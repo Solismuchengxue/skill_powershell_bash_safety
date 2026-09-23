@@ -146,3 +146,27 @@ flowchart LR
 - synthetic tests 可以使用明确 sentinel；不得读取 chat、真实 history、environment 中的 secret，或连接真实 SSH/sudo/FNOS 来证明本地合同。
 - 规范验证器、旧用户级工具副本、已安装 Skill 镜像和机器 Shell 环境是不同身份；源码候选通过验证不授权覆盖后三者。
 - MCP 消息审批、空回传与任务唤醒不是解析器、静态检查或 Target 兼容性结论；没有外部证据时保持 `UNKNOWN`。
+
+## 固定版本交付与更新回退
+
+### 已验收制品基线
+
+2026-09-23 本机安装基线为 `0467a97bc859b9b4e71fffe218ee29f823adc35f`，package 相对路径 `skills/powershell-bash-safety/`，来源仓库 `Solismuchengxue/skill_powershell_bash_safety`。已验收 ZIP 名称为 `powershell-bash-safety_0467a97.zip`，SHA-256 为 `9a81aac4421405d0c072f44f76c0c586b4ffc10d25931feb7000a5a632449545`，包根为 `powershell-bash-safety/`，包含 8 个文件。
+
+安装状态 `INSTALLED_LOAD_VERIFIED` 只代表普通目录消费入口、新会话发现/完整加载、文件集及 SHA-256 一致；业务操作为 0。源码编辑、切分支和 pull 不会改变这一安装快照；源码与安装不要求永久跟随最新 main。当前 `v1.0.0` 的 tag commit 比此基线早 1 个提交，Release 无附加 assets；固定 commit 的本机制品不能称为新 tag/Release 已发布。
+
+### 最小可复现交付
+
+1. 明确来源 repository、完整 commit、package 相对路径和文件清单；检查当前消费者是否有额外功能差异，发现差异先决定，不丢弃或混入。
+2. 在新的隔离制品目录从固定 commit 导出，显式 `git -c core.autocrlf=false archive`；逐项对照 `git cat-file blob <commit>:<path>`。Git 默认换行转换可能改变 archive 字节，不能仅比较两个相同导出过程的副本。
+3. 生成只含包根的 ZIP，固定成员顺序、时间和压缩参数；在包外记录 manifest（来源、精确路径、长度、逐文件 SHA-256）与 ZIP SHA-256。先验证 ZIP 成员边界、实际解包文件及原始 blob 一致，再将其作为安装候选。未来重建如 ZIP 文件哈希不同，必须重新确认制品身份，不能冒称同一已验收 ZIP。
+4. 执行 quick_validate.py、引用/UTF-8/BOM/NUL/尾空白检查、PowerShell AST（3 文件）、Shell parser（1 helper）及相称的隔离 synthetic 测试。当前基线的三个功能 suite 为 14+14+29=57；consumer 治理 suite 单独计数，不把加载验收或语法检查等同于真实运行。
+5. 已验收 ZIP 采用保留和校验，不为文档收口重新打包或覆盖；本地制品报告记录精确命令、清单、日志和切换/加载证据。源码提交、远端 push、tag/Release、安装是分别授权的动作。
+
+### 显式更新、回退和保留
+
+- 每次更新选择固定制品，通过新的路径清单与独立授权，从已验证的 prepared 普通目录提升到消费入口；禁止向 Junction force install。移动旧入口和移动新目录之间存在空窗，不称原子切换。
+- 文件替换后先标 `SWITCHED_PENDING_LOAD_VERIFICATION`，只有新会话发现、加载和安装一致性通过才升为 `INSTALLED_LOAD_VERIFIED`；不更改原切换收据中的历史状态，用新的验收记录追加结论。
+- 保留旧入口与来源证据。长期回退优先采用上一独立安装快照；本次保留的原 Junction 仍指向开发源码，不能称不可变备份。只有链接身份/目标、源码内容与候选均未漂移且目的路径未被占用时才可恢复；不满足即停止，不覆盖、不删除、不回退开发 checkout。
+- 失败候选保留到事先批准的 failed 路径，再依批准方案恢复旧入口；不从加载失败自动推导删除或再次安装权限。恢复文件不证明旧会话已重载，回退后仍需独立加载核验。
+- 安装制品、逐文件 manifest、切换收据、新会话验收证据保留；拒绝的导出、诊断解包目录及旧链接只能列为精确删除候选。清理另行批准，删除链接对象不得遍历其源码目标，不对共享 staging 根递归清理。
